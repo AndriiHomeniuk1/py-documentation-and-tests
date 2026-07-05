@@ -10,6 +10,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from cinema.models import Movie, MovieSession, CinemaHall, Genre, Actor
+from cinema.serializers import MovieListSerializer
 
 MOVIE_URL = reverse("cinema:movie-list")
 MOVIE_SESSION_URL = reverse("cinema:moviesession-list")
@@ -157,3 +158,104 @@ class MovieImageUploadTests(TestCase):
         res = self.client.get(MOVIE_SESSION_URL)
 
         self.assertIn("movie_image", res.data[0].keys())
+
+
+class UnauthenticatedMovieApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_auth_required(self):
+        res = self.client.get(MOVIE_URL)
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class AuthenticatedMovieApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(
+            email = "test@test.test",
+            password = "testpassword"
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_movies_list(self):
+        sample_movie()
+        movie_with_genre_and_actor = sample_movie()
+
+        genre = Genre.objects.create(name="Sci-Fi")
+        actor = Actor.objects.create(
+            first_name="Leonardo",last_name="DiCaprio")
+        movie_with_genre_and_actor.genres.add(genre)
+        movie_with_genre_and_actor.actors.add(actor)
+
+        res = self.client.get(MOVIE_URL)
+        movies = Movie.objects.all()
+        serializer = MovieListSerializer(movies, many=True)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data, serializer.data)
+
+    def test_filter_movies_by_title(self):
+        movie_title_1 = sample_movie()
+        movie_title_2 = sample_movie(title="Spectre")
+        movie_title_3 = sample_movie(title="Forrest Gump")
+
+        res = self.client.get(
+            MOVIE_URL,
+            {"title": f"{movie_title_2.title}"}
+        )
+        serializer_movie_title_1 = MovieListSerializer(movie_title_1)
+        serializer_movie_title_2 = MovieListSerializer(movie_title_2)
+        serializer_movie_title_3 = MovieListSerializer(movie_title_3)
+
+        self.assertIn(serializer_movie_title_2.data, res.data)
+        self.assertNotIn(serializer_movie_title_1.data, res.data)
+        self.assertNotIn(serializer_movie_title_3.data, res.data)
+
+    def test_filter_movies_by_genre(self):
+        movie_without_genre = sample_movie()
+        movie_with_genre_1 = sample_movie(title="Forrest Gump")
+        movie_with_genre_2 = sample_movie(title="Spectre")
+
+        genre_1 = sample_genre(name="Drama")
+        genre_2 = sample_genre(name="Action")
+
+        movie_with_genre_1.genres.add(genre_1)
+        movie_with_genre_2.genres.add(genre_2)
+
+        res = self.client.get(
+            MOVIE_URL,
+            {"genres": f"{genre_1.id},{genre_2.id}"}
+        )
+
+        serializer_without_genre = MovieListSerializer(movie_without_genre)
+        serializer_movie_genre_1 = MovieListSerializer(movie_with_genre_1)
+        serializer_movie_genre_2 = MovieListSerializer(movie_with_genre_2)
+
+        self.assertIn(serializer_movie_genre_1.data, res.data)
+        self.assertIn(serializer_movie_genre_2.data, res.data)
+        self.assertNotIn(serializer_without_genre.data, res.data)
+
+    def test_filter_movies_by_actor(self):
+        movie_without_actor = sample_movie()
+        movie_with_actor_1 = sample_movie(title="Forrest Gump")
+        movie_with_actor_2 = sample_movie(title="Spectre")
+
+        actor_1 = sample_actor(first_name="Tom", last_name="Hanks")
+        actor_2 = sample_actor(first_name="Daniel", last_name="Craig")
+
+        movie_with_actor_1.actors.add(actor_1)
+        movie_with_actor_2.actors.add(actor_2)
+
+        res = self.client.get(
+            MOVIE_URL,
+            {"actors": f"{actor_1.id},{actor_2.id}"}
+        )
+
+        serializer_without_actor = MovieListSerializer(movie_without_actor)
+        serializer_movie_actor_1 = MovieListSerializer(movie_with_actor_1)
+        serializer_movie_actor_2 = MovieListSerializer(movie_with_actor_2)
+
+        self.assertIn(serializer_movie_actor_1.data, res.data)
+        self.assertIn(serializer_movie_actor_2.data, res.data)
+        self.assertNotIn(serializer_without_actor.data, res.data)
