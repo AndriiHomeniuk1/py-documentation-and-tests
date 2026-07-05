@@ -59,6 +59,23 @@ class AuthenticatedMovieApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(res.data, serializer.data)
 
+    def test_filter_movies_by_title(self):
+        movie_title_1 = sample_movie()
+        movie_title_2 = sample_movie(title="Spectre")
+        movie_title_3 = sample_movie(title="Forrest Gump")
+
+        res = self.client.get(
+            MOVIE_URL,
+            {"title": f"{movie_title_2.title}"}
+        )
+        serializer_movie_title_1 = MovieListSerializer(movie_title_1)
+        serializer_movie_title_2 = MovieListSerializer(movie_title_2)
+        serializer_movie_title_3 = MovieListSerializer(movie_title_3)
+
+        self.assertIn(serializer_movie_title_2.data, res.data)
+        self.assertNotIn(serializer_movie_title_1.data, res.data)
+        self.assertNotIn(serializer_movie_title_3.data, res.data)
+
     def test_filter_movies_by_genre(self):
         movie_without_genre = sample_movie()
         movie_with_genre_1 = sample_movie(title="Forrest Gump")
