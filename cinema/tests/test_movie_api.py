@@ -320,3 +320,18 @@ class AdminMovieTests(TestCase):
                 )
             else:
                 self.assertEqual(payload[key], value)
+
+    def test_create_movie_without_genres_actors(self):
+        payload = {
+            "title": "Sample movie",
+            "description": "Sample description",
+            "duration": 90,
+            "genres": [],
+            "actors": [],
+        }
+
+        res = self.client.post(MOVIE_URL, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("genres", res.data)
+        self.assertIn("actors", res.data)
