@@ -335,3 +335,30 @@ class AdminMovieTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("genres", res.data)
         self.assertIn("actors", res.data)
+
+    def test_update_movie_not_allowed(self):
+        movie = sample_movie()
+        payload = {
+            "title": "Updated title",
+            "description": "Updated description",
+            "duration": 120,
+            "genres": [sample_genre().id],
+            "actors": [sample_actor().id],
+        }
+
+        res = self.client.put(f"{MOVIE_URL}{movie.id}/", payload)
+        self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_partial_update_movie_not_allowed(self):
+        movie = sample_movie()
+        payload = {"title": "Updated title"}
+
+        res = self.client.patch(f"{MOVIE_URL}{movie.id}/", payload)
+        self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_delete_movie_not_allowed(self):
+        movie = sample_movie()
+        url = detail_url(movie.id)
+
+        res = self.client.delete(url)
+        self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
